@@ -1,4 +1,20 @@
 {
+  "entity": {
+    "sensor": {
+      "zone": {
+        "default": "mdi:shield-check",
+        "state": {
+          "closed": "mdi:shield-check",
+          "open": "mdi:door-open",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "open_zones": {
+        "default": "mdi:door-open"
+      }
+    }
+  },
   "services": {
     "arm": {
       "service": "mdi:shield-lock"

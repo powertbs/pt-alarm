@@ -6,16 +6,21 @@ from homeassistant.const import Platform
 
 DOMAIN = "pt_alarm"
 NAME = "PT Alarm"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 MANUFACTURER = "PowerTech Security & Communications"
 
-PLATFORMS: list[Platform] = [Platform.ALARM_CONTROL_PANEL]
+PLATFORMS: list[Platform] = [Platform.ALARM_CONTROL_PANEL, Platform.SENSOR]
 
 # Frontend (dashboard card) served by the integration itself
 FRONTEND_URL_BASE = "/pt_alarm_static"
 CARD_FILENAME = "pt-alarm-card.js"
 
 EVENT = f"{DOMAIN}_event"
+
+
+def signal_update(entry_id: str) -> str:
+    """Dispatcher signal sent whenever a panel's state changes."""
+    return f"{DOMAIN}_{entry_id}_update"
 
 # ---------------------------------------------------------------------------
 # Arm modes
@@ -61,6 +66,18 @@ CONF_SALT = "salt"
 CONF_NUMERIC = "numeric"
 CONF_CAN_ARM = "can_arm"
 CONF_CAN_DISARM = "can_disarm"
+CONF_CAN_BYPASS = "can_bypass"
+CONF_DAYS = "days"
+CONF_START_TIME = "start_time"
+CONF_END_TIME = "end_time"
+CONF_VALID_FROM = "valid_from"
+CONF_VALID_UNTIL = "valid_until"
+CONF_BLOCKED_BY = "blocked_by"
+BLOCKING_DOMAINS = ["calendar", "binary_sensor", "input_boolean", "switch", "schedule"]
+
+WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+DEFAULT_START_TIME = "00:00:00"
+DEFAULT_END_TIME = "23:59:59"
 
 CONF_SIREN_ENTITIES = "siren_entities"
 CONF_NOTIFY_SERVICES = "notify_services"
@@ -126,13 +143,38 @@ SENSOR_TYPE_DEFAULTS: dict[str, dict] = {
 
 SENSOR_DOMAINS = [
     "binary_sensor",
-    "sensor",
     "lock",
     "cover",
     "input_boolean",
     "switch",
     "device_tracker",
 ]
+
+# Guess a sensor type from its device class
+DEVICE_CLASS_TYPES: dict[str, str] = {
+    "door": SENSOR_DOOR,
+    "garage_door": SENSOR_DOOR,
+    "opening": SENSOR_DOOR,
+    "lock": SENSOR_DOOR,
+    "garage": SENSOR_DOOR,
+    "gate": SENSOR_DOOR,
+    "window": SENSOR_WINDOW,
+    "shutter": SENSOR_WINDOW,
+    "blind": SENSOR_WINDOW,
+    "motion": SENSOR_MOTION,
+    "occupancy": SENSOR_MOTION,
+    "presence": SENSOR_MOTION,
+    "moving": SENSOR_MOTION,
+    "tamper": SENSOR_TAMPER,
+    "vibration": SENSOR_TAMPER,
+    "smoke": SENSOR_ENVIRONMENTAL,
+    "gas": SENSOR_ENVIRONMENTAL,
+    "carbon_monoxide": SENSOR_ENVIRONMENTAL,
+    "moisture": SENSOR_ENVIRONMENTAL,
+    "heat": SENSOR_ENVIRONMENTAL,
+    "cold": SENSOR_ENVIRONMENTAL,
+    "safety": SENSOR_ENVIRONMENTAL,
+}
 
 # States that count as "open" / "active" for a sensor
 OPEN_STATES = {"on", "open", "opening", "unlocked", "detected", "true", "not_home"}

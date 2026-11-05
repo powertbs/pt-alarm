@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Create a PT Alarm panel",
-        "description": "Give your alarm panel a name. You can add a first user code now, or add users later from the integration's **Configure** menu.",
+        "description": "Give your alarm panel a name and, optionally, a first user code. Next you can add sensors. Everything can be changed later under **Configure**.",
         "data": {
           "name": "Panel name",
           "user_name": "First user name",
@@ -12,6 +12,17 @@
         "data_description": {
           "code": "At least 4 characters. Digits-only codes give you a numeric keypad."
         }
+      },
+      "sensors": {
+        "title": "Add sensors",
+        "description": "Choose the door, window, motion and other sensors that belong to this alarm. You can skip this and add sensors later.",
+        "data": {
+          "entities": "Sensors"
+        }
+      },
+      "sensor_types": {
+        "title": "Sensor types",
+        "description": "Choose a type for each sensor. The type sets sensible defaults (active modes, entry delay or immediate). We guessed where we could.\n\n{sensors}"
       }
     },
     "error": {
@@ -25,17 +36,17 @@
     "step": {
       "init": {
         "title": "PT Alarm configuration",
-        "description": "{sensors} sensor(s) and {users} user(s) configured. Make your changes, then choose **Save and close**.",
+        "description": "{sensors} sensor(s) and {users} user(s) configured. Each change is saved as soon as you click **Submit**. Close this window when you are done.",
         "menu_options": {
           "general": "General settings",
           "modes": "Arm modes and delays",
           "sensor_add": "Add sensors",
           "sensor_edit": "Edit a sensor",
           "sensor_remove": "Remove sensors",
-          "user_add": "Add a user code",
-          "user_remove": "Remove user codes",
-          "actions": "Sirens and notifications",
-          "save": "Save and close"
+          "user_add": "Add a user",
+          "user_edit": "Edit a user",
+          "user_remove": "Remove users",
+          "actions": "Sirens and notifications"
         }
       },
       "general": {
@@ -67,10 +78,9 @@
       },
       "sensor_add": {
         "title": "Add sensors",
-        "description": "Choose sensors and a type. Each type has sensible defaults that you can fine-tune afterwards with **Edit a sensor**.",
+        "description": "Choose the sensors to add. On the next screen you choose a type for each one.",
         "data": {
-          "entities": "Sensors",
-          "type": "Sensor type"
+          "entities": "Sensors"
         }
       },
       "sensor_edit": {
@@ -98,17 +108,30 @@
         }
       },
       "user_add": {
-        "title": "Add a user code",
+        "title": "Add a user",
         "description": "Codes are stored hashed and cannot be read back.",
         "data": {
           "name": "Name",
           "code": "Code",
           "can_arm": "Can arm",
-          "can_disarm": "Can disarm"
+          "can_disarm": "Can disarm",
+          "can_bypass": "Can bypass open sensors (arm anyway)",
+          "days": "Allowed days",
+          "start_time": "Allowed from (time)",
+          "end_time": "Allowed until (time)",
+          "valid_from": "Valid from (date, optional)",
+          "valid_until": "Valid until (date, optional)",
+          "blocked_by": "Not allowed while (holidays, optional)"
+        },
+        "data_description": {
+          "code": "At least 4 characters. Digits only gives a numeric keypad.",
+          "start_time": "If the start is later than the end (for example 22:00 to 06:00), the window runs overnight.",
+          "valid_until": "Leave the dates empty for a permanent code.",
+          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch."
         }
       },
       "user_remove": {
-        "title": "Remove user codes",
+        "title": "Remove users",
         "data": {
           "users": "Users to remove"
         }
@@ -123,11 +146,62 @@
         "data_description": {
           "notify_services": "For example notify.mobile_app_my_phone. Custom values are allowed."
         }
+      },
+      "sensor_types": {
+        "title": "Sensor types",
+        "description": "Choose a type for each sensor. The type sets sensible defaults (active modes, entry delay or immediate). We guessed where we could.\n\n{sensors}"
+      },
+      "user_edit": {
+        "title": "Edit a user",
+        "data": {
+          "user": "User"
+        }
+      },
+      "user_settings": {
+        "title": "Edit user: {user}",
+        "data": {
+          "name": "Name",
+          "code": "New code",
+          "can_arm": "Can arm",
+          "can_disarm": "Can disarm",
+          "can_bypass": "Can bypass open sensors (arm anyway)",
+          "days": "Allowed days",
+          "start_time": "Allowed from (time)",
+          "end_time": "Allowed until (time)",
+          "valid_from": "Valid from (date, optional)",
+          "valid_until": "Valid until (date, optional)",
+          "blocked_by": "Not allowed while (holidays, optional)"
+        },
+        "data_description": {
+          "code": "Leave empty to keep the current code.",
+          "start_time": "If the start is later than the end (for example 22:00 to 06:00), the window runs overnight.",
+          "valid_until": "Leave the dates empty for a permanent code.",
+          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch."
+        }
       }
     },
     "error": {
       "code_too_short": "The code must be at least 4 characters.",
-      "user_exists": "A user with this name already exists."
+      "user_exists": "A user with this name already exists.",
+      "name_required": "Enter a name.",
+      "no_days": "Choose at least one day.",
+      "dates_reversed": "The end date is before the start date."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "zone": {
+        "name": "Zone",
+        "state": {
+          "closed": "Closed",
+          "open": "Open",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "open_zones": {
+        "name": "Open zones"
+      }
     }
   },
   "selector": {
@@ -169,6 +243,17 @@
         "failed_to_arm": "Failed to arm",
         "invalid_code": "Invalid code entered",
         "locked_out": "Keypad locked out"
+      }
+    },
+    "weekday": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
       }
     }
   },
@@ -217,6 +302,12 @@
     },
     "locked_out": {
       "message": "Too many invalid codes. Try again in {seconds} seconds."
+    },
+    "bypass_not_allowed": {
+      "message": "This user is not allowed to bypass open sensors."
+    },
+    "outside_schedule": {
+      "message": "The code for {user} is not valid at this time."
     }
   }
 }

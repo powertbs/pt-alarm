@@ -23,9 +23,18 @@
   - always on (24 hours, even when disarmed)
   - allow it to be open when arming (for example motion sensors)
   - trigger when it becomes unavailable
-- **User codes**: each user has their own code with separate arm and disarm permissions. Codes are stored as salted PBKDF2 hashes, never in plain text.
+- **User codes**: each user has their own code with separate **arm**, **disarm** and **bypass** permissions, plus an optional schedule:
+  - allowed days of the week
+  - allowed time window (overnight windows such as 22:00–06:00 work)
+  - valid from and until dates, for guest or contractor codes
+  - **not allowed while** a holiday calendar, Yom Tov sensor or vacation switch is on
+
+  Example: a cleaner code that only works on Mondays from 08:00 to 16:00, and not on holidays.
+
+  Codes are stored as salted PBKDF2 hashes, never in plain text.
+- **Zone sensors**: every alarm sensor gets a status sensor on the PT Alarm device (Closed, Open, Bypassed or Alarm), plus an **Open zones** counter. Use them on dashboards and in automations.
 - **Lockout** after too many wrong codes.
-- **Open-sensor protection**: arming is refused while a door or window is open. You can force-arm or enable auto-bypass to skip the open sensors.
+- **Open-sensor protection**: arming is refused while a door or window is open. A user with the bypass permission can arm anyway, or you can enable auto-bypass.
 - **Sirens**: turn on any siren, switch, light or script when the alarm triggers, and turn them off when it is disarmed.
 - **Notifications** to any `notify` service for the events you choose.
 - **Events** (`pt_alarm_event`) for your own automations.
@@ -53,13 +62,13 @@ Copy `custom_components/pt_alarm` into your Home Assistant `config/custom_compon
 
 1. Go to **Settings → Devices & services → Add integration → PT Alarm**.
 2. Name the panel and, optionally, set a first user code.
-3. Open the integration and click **Configure**. From the menu you can:
+3. Pick your sensors and choose a type for each one. The type is guessed from the sensor where possible.
+4. Open the integration and click **Configure** to change anything later. Each change is saved as soon as you click **Submit**. From the menu you can:
    - **General settings**: code requirements, auto-bypass, lockout
    - **Arm modes and delays**: enable modes and set exit, entry and trigger times
    - **Add / Edit / Remove sensors**
-   - **Add / Remove user codes**
+   - **Add / Edit / Remove users**: code, permissions, days, hours and dates
    - **Sirens and notifications**
-4. Choose **Save and close**. The panel reloads with the new settings.
 
 ### Sensor defaults
 
@@ -73,6 +82,21 @@ Copy `custom_components/pt_alarm` into your Home Assistant `config/custom_compon
 | Other         | Away                         | Entry delay                       |
 
 A sensor counts as **open** when its state is `on`, `open`, `opening`, `unlocked`, `detected`, `true` or `not_home`.
+
+## Zone sensors
+
+For each alarm sensor, PT Alarm creates a status sensor on the PT Alarm device, for example `sensor.pt_alarm_front_door`:
+
+| State      | Meaning                                                     |
+|------------|-------------------------------------------------------------|
+| `closed`   | The sensor is closed / idle                                  |
+| `open`     | The sensor is open / active                                  |
+| `bypassed` | Ignored for the current arming                               |
+| `alarm`    | This zone caused the current entry delay or alarm            |
+
+Attributes: `entity_id` (the source sensor), `zone_type`, `active_modes`, `immediate`, `always_on`, `allow_open`, `is_open`, `bypassed`.
+
+`sensor.pt_alarm_open_zones` counts open zones and lists them in `open_zones` and `open_zone_names`.
 
 ## Dashboard card
 

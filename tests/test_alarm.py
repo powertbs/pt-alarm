@@ -142,7 +142,7 @@ async def test_open_sensor_blocks_arming_unless_forced(hass):
     assert "failed_to_arm" in events
     assert hass.states.get(ENTITY).state == "disarmed"
 
-    await _call(hass, "arm", mode="home", force=True)
+    await _call(hass, "arm", mode="home", force=True, code="1234")
     state = hass.states.get(ENTITY)
     assert state.state == "armed_home"
     assert state.attributes["bypassed_sensors"] == [DOOR]
@@ -191,3 +191,103 @@ async def test_card_is_served(hass, hass_client):
     resp = await client.get("/pt_alarm_static/pt-alarm-card.js")
     assert resp.status == 200
     assert "pt-alarm-card" in await resp.text()
+
+
+def _user(name, code, **extra):
+    return {"id": name, "name": name, "can_arm": True, "can_disarm": True, **hash_code(code), **extra}
+
+
+async def test_bypass_needs_permission(hass):
+    users = [_user("Alice", "1234", can_bypass=True), _user("Kid", "5678", can_bypass=False)]
+    await _setup(hass, users=users)
+    hass.states.async_set(DOOR, "on")
+    await hass.async_block_till_done()
+
+    # Force without a code, and with a code lacking the permission, are refused
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, "arm", mode="home", force=True)
+    with pytest.raises(ServiceValidationError, match="bypass"):
+        await _call(hass, "arm", mode="home", force=True, code="5678")
+    assert hass.states.get(ENTITY).state == "disarmed"
+
+    await _call(hass, "arm", mode="home", force=True, code="1234")
+    assert hass.states.get(ENTITY).state == "armed_home"
+
+
+async def test_user_schedule_and_dates(hass, freezer):
+    freezer.move_to("2026-11-04 12:00:00")  # a Wednesday, noon (UTC)
+    await hass.config.async_set_time_zone("UTC")
+    users = [
+        _user("Night", "1111", days=["wed"], start_time="22:00:00", end_time="06:00:00"),
+        _user("Guest", "2222", valid_from="2026-11-01", valid_until="2026-11-03"),
+        _user("Owner", "3333"),
+    ]
+    await _setup(hass, users=users)
+    await _call(hass, "arm", mode="home")
+
+    with pytest.raises(ServiceValidationError, match="not valid at this time"):
+        await _call(hass, "alarm_disarm", code="1111")  # outside 22:00-06:00
+    with pytest.raises(ServiceValidationError, match="not valid at this time"):
+        await _call(hass, "alarm_disarm", code="2222")  # guest code expired
+
+    freezer.move_to("2026-11-05 03:00:00")  # Thursday 03:00, inside Wednesday's overnight window
+    await _call(hass, "alarm_disarm", code="1111")
+    assert hass.states.get(ENTITY).state == "disarmed"
+
+
+async def test_zone_sensors(hass):
+    await _setup(hass)
+    door_zone = "sensor.house_front_door"
+    open_zones = "sensor.house_open_zones"
+    assert hass.states.get(door_zone).state == "closed"
+    assert hass.states.get(door_zone).attributes["zone_type"] == "door"
+    assert hass.states.get(open_zones).state == "0"
+
+    hass.states.async_set(DOOR, "on")
+    await hass.async_block_till_done()
+    assert hass.states.get(door_zone).state == "open"
+    assert hass.states.get(open_zones).state == "1"
+
+    await _call(hass, "arm", mode="home", force=True, code="1234")
+    assert hass.states.get(door_zone).state == "bypassed"
+
+    await _call(hass, "alarm_disarm", code="1234")
+    assert hass.states.get(door_zone).state == "open"
+
+    hass.states.async_set(DOOR, "off")
+    await hass.async_block_till_done()
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    hass.states.async_set(DOOR, "on")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY).state == "pending"
+    assert hass.states.get(door_zone).state == "alarm"
+
+
+async def test_cleaner_mondays_8_to_4_not_on_holidays(hass, freezer):
+    await hass.config.async_set_time_zone("UTC")
+    hass.states.async_set("calendar.holidays", "off")
+    cleaner = _user(
+        "Cleaner", "4444", days=["mon"], start_time="08:00:00", end_time="16:00:00",
+        blocked_by=["calendar.holidays"],
+    )
+    await _setup(hass, users=[cleaner, _user("Owner", "3333")])
+
+    freezer.move_to("2026-11-09 10:00:00")  # Monday 10:00
+    await _call(hass, "arm", mode="home")
+    await _call(hass, "alarm_disarm", code="4444")
+    assert hass.states.get(ENTITY).state == "disarmed"
+
+    await _call(hass, "arm", mode="home")
+    freezer.move_to("2026-11-09 17:00:00")  # Monday after 16:00
+    with pytest.raises(ServiceValidationError, match="not valid at this time"):
+        await _call(hass, "alarm_disarm", code="4444")
+
+    freezer.move_to("2026-11-10 10:00:00")  # Tuesday
+    with pytest.raises(ServiceValidationError, match="not valid at this time"):
+        await _call(hass, "alarm_disarm", code="4444")
+
+    freezer.move_to("2026-11-16 10:00:00")  # Monday, but a holiday
+    hass.states.async_set("calendar.holidays", "on")
+    with pytest.raises(ServiceValidationError, match="not valid at this time"):
+        await _call(hass, "alarm_disarm", code="4444")
+    assert hass.states.get(ENTITY).state == "armed_home"

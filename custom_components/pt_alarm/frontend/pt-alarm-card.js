@@ -2,7 +2,7 @@
  * PT Alarm Card - dashboard card for the PT Alarm integration.
  * Served and auto-registered by the integration; no manual resource needed.
  */
-const CARD_VERSION = "0.0.1";
+const CARD_VERSION = "0.0.2";
 const ASSET_BASE = "/pt_alarm_static";
 const COMPANY_URL = "https://powertbs.com/";
 
@@ -154,6 +154,7 @@ class PTAlarmCard extends HTMLElement {
 
   get _codeNeeded() {
     if (!this._attrs.code_format) return false;
+    if (this._forceMode) return true; // bypassing open sensors needs an authorized code
     return this._isDisarmed ? !!this._attrs.code_arm_required : this._attrs.code_disarm_required !== false;
   }
 
@@ -188,7 +189,7 @@ class PTAlarmCard extends HTMLElement {
     const data = { mode: mode.replace("armed_", ""), force };
     if (this._code) data.code = this._code;
     this._call("pt_alarm", "arm", data).then(() => {
-      if (this._error && /open/i.test(this._error)) {
+      if (this._error && /open/i.test(this._error) && !force) {
         this._forceMode = mode;
         this._render();
       }

@@ -21,6 +21,7 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, Stat
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -35,7 +36,9 @@ from .const import (
     CONF_ALLOW_OPEN,
     CONF_ALWAYS_ON,
     CONF_AUTO_BYPASS,
+    CONF_BLOCKED_BY,
     CONF_CAN_ARM,
+    CONF_CAN_BYPASS,
     CONF_CAN_DISARM,
     CONF_CODE_ARM_REQUIRED,
     CONF_CODE_DISARM_REQUIRED,
@@ -77,8 +80,9 @@ from .const import (
     SERVICE_ARM,
     UNAVAILABLE_STATES,
     VERSION,
+    signal_update,
 )
-from .helpers import check_code, merged_options
+from .helpers import check_code, merged_options, user_allowed_now
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -186,6 +190,22 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
         return [m for m in ARM_MODES if self._modes[m][CONF_ENABLED]]
 
     @property
+    def bypassed(self) -> list[str]:
+        """Sensors bypassed for the current arming."""
+        return self._bypassed
+
+    @property
+    def triggered_by(self) -> str | None:
+        """Sensor that caused the current entry delay or trigger."""
+        return self._triggered_by
+
+    @callback
+    def async_write_ha_state(self) -> None:
+        """Write state and let the zone sensors know."""
+        super().async_write_ha_state()
+        async_dispatcher_send(self.hass, signal_update(self._entry.entry_id))
+
+    @property
     def alarm_state(self) -> AlarmControlPanelState:
         """Return the current alarm state."""
         return self._state
@@ -237,6 +257,7 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
     async def async_added_to_hass(self) -> None:
         """Restore state and start listening to sensors."""
         await super().async_added_to_hass()
+        self.hass.data.setdefault(DOMAIN, {})[self._entry.entry_id] = self
 
         if self._sensors:
             self.async_on_remove(
@@ -270,6 +291,7 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up timers."""
+        self.hass.data.get(DOMAIN, {}).pop(self._entry.entry_id, None)
         self._cancel_timer()
         if self._lockout_unsub:
             self._lockout_unsub()
@@ -344,9 +366,17 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
                 translation_domain=DOMAIN, translation_key="disarm_first"
             )
 
-        user = await self._async_validate_code(code, disarm=False)
-
         blocking = self._blocking_sensors(mode)
+        # Bypassing open sensors by hand needs a user with the bypass permission.
+        manual_bypass = bool(blocking) and force and not self._cfg[CONF_AUTO_BYPASS]
+        user = await self._async_validate_code(
+            code, disarm=False, required=True if manual_bypass and self._users else None
+        )
+        if manual_bypass and user is not None and not user.get(CONF_CAN_BYPASS, True):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="bypass_not_allowed"
+            )
+
         if blocking and not (force or self._cfg[CONF_AUTO_BYPASS]):
             names = ", ".join(self._friendly(e) for e in blocking)
             self._fire(EVENT_FAILED_TO_ARM, mode=mode, sensors=blocking, sensor_names=names)
@@ -547,6 +577,13 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
                     raise ServiceValidationError(
                         translation_domain=DOMAIN, translation_key="not_allowed"
                     )
+                if not user_allowed_now(user, dt_util.now()) or self._blocked(user):
+                    self._fire(EVENT_INVALID_CODE, user=user, reason="outside_schedule")
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="outside_schedule",
+                        translation_placeholders={"user": user.get(CONF_USER_NAME, "")},
+                    )
                 self._failed_attempts = 0
                 return user
 
@@ -570,6 +607,14 @@ class PTAlarmPanel(AlarmControlPanelEntity, RestoreEntity):
         raise ServiceValidationError(
             translation_domain=DOMAIN, translation_key="invalid_code"
         )
+
+    def _blocked(self, user: dict) -> bool:
+        """True while any of the user's 'not allowed while' entities is on."""
+        for entity_id in user.get(CONF_BLOCKED_BY) or []:
+            state = self.hass.states.get(entity_id)
+            if state is not None and state.state == "on":
+                return True
+        return False
 
     @callback
     def _lockout_done(self, _now: datetime) -> None:
