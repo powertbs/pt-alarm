@@ -1,8 +1,10 @@
 <p align="center">
-  <picture>
+  <a href="https://powertbs.com/"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
     <img src="docs/logo.png" width="380" alt="PowerTech Security &amp; Communications">
-  </picture>
+  </picture></a>
+  <br>
+  <a href="https://powertbs.com/">powertbs.com</a>
 </p>
 
 # PT Alarm
@@ -182,6 +184,12 @@ Always-on sensors trigger from any state.
 pip install -r requirements_test.txt
 pytest
 ```
+
+## About PowerTech
+
+PT Alarm is made by **[PowerTech Security & Communications](https://powertbs.com/)**. Learn more at [powertbs.com](https://powertbs.com/).
+
+Found a bug or have a feature request? [Open an issue](https://github.com/powertbs/pt-alarm/issues).
 
 ## Credits
 

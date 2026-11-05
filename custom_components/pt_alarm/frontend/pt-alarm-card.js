@@ -4,6 +4,7 @@
  */
 const CARD_VERSION = "1.0.0";
 const ASSET_BASE = "/pt_alarm_static";
+const COMPANY_URL = "https://powertbs.com/";
 
 const MODES = {
   armed_away: { label: "Away", icon: "mdi:shield-lock" },
@@ -282,7 +283,7 @@ class PTAlarmCard extends HTMLElement {
       <ha-card style="--state-color:${info.color}">
         ${
           this._config.show_logo
-            ? `<div class="brand"><img src="${ASSET_BASE}/${this._dark ? "logo-dark" : "logo"}.png?v=${CARD_VERSION}" alt="PowerTech Security &amp; Communications"></div>`
+            ? `<a class="brand" href="${COMPANY_URL}" target="_blank" rel="noopener noreferrer" title="PowerTech Security &amp; Communications"><img src="${ASSET_BASE}/${this._dark ? "logo-dark" : "logo"}.png?v=${CARD_VERSION}" alt="PowerTech Security &amp; Communications"></a>`
             : ""
         }
         <div class="header ${state === "triggered" ? "pulse" : ""}">
