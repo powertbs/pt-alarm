@@ -385,7 +385,7 @@ if (!customElements.get("pt-alarm-card")) {
     name: "PT Alarm Card",
     description: "Keypad, arm modes, countdowns and open sensors for PT Alarm.",
     preview: true,
-    documentationURL: "https://github.com/YOUR_GITHUB_USERNAME/pt-alarm",
+    documentationURL: "https://github.com/powertbs/pt-alarm",
   });
   console.info(`%c PT-ALARM-CARD %c v${CARD_VERSION} `, "color:#fff;background:#db4437;font-weight:700", "color:#db4437");
 }

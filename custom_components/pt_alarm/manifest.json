@@ -8,16 +8,16 @@
     "security_safety.alarm_systems"
   ],
   "codeowners": [
-    "@YOUR_GITHUB_USERNAME"
+    "@powertbs"
   ],
   "config_flow": true,
   "dependencies": [
     "http"
   ],
-  "documentation": "https://github.com/YOUR_GITHUB_USERNAME/pt-alarm",
+  "documentation": "https://github.com/powertbs/pt-alarm",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/YOUR_GITHUB_USERNAME/pt-alarm/issues",
+  "issue_tracker": "https://github.com/powertbs/pt-alarm/issues",
   "requirements": [],
   "version": "1.0.0"
 }

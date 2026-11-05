@@ -20,11 +20,7 @@ Since Home Assistant 2026.11, HACS is built into Home Assistant as the **Marketp
 
 ## 1. Set your GitHub username
 
-Replace `YOUR_GITHUB_USERNAME` everywhere. It appears in `manifest.json`, `README.md` and the card's `documentationURL`:
-
-```bash
-grep -rl YOUR_GITHUB_USERNAME . --exclude-dir=.git | xargs sed -i 's/YOUR_GITHUB_USERNAME/<your-username>/g'
-```
+✅ Done. The repository is `https://github.com/powertbs/pt-alarm`, and the manifest, README and card all point to it.
 
 ## 2. Push to GitHub (GitHub Desktop)
 

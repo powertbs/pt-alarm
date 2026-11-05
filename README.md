@@ -8,7 +8,7 @@
 # PT Alarm
 
 [![Marketplace](https://img.shields.io/badge/Home%20Assistant-Marketplace-41BDF5.svg)](https://contributors.home-assistant.io/marketplace/)
-[![Validate](https://github.com/YOUR_GITHUB_USERNAME/pt-alarm/actions/workflows/validate.yaml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/pt-alarm/actions/workflows/validate.yaml)
+[![Validate](https://github.com/powertbs/pt-alarm/actions/workflows/validate.yaml/badge.svg)](https://github.com/powertbs/pt-alarm/actions/workflows/validate.yaml)
 
 **PT Alarm** by PowerTech Security & Communications turns the sensors you already have in Home Assistant into a full alarm system. It runs entirely locally, needs no cloud and no extra hardware, and **comes with its own dashboard card**.
 
@@ -36,12 +36,12 @@
 ### Home Assistant Marketplace (2026.11 and newer)
 
 1. Go to **Settings → Marketplace**.
-2. Search for **PT Alarm**. If it isn't in the catalog yet, choose **Add from link** and paste `https://github.com/YOUR_GITHUB_USERNAME/pt-alarm`. Adding from a link requires a one-time GitHub connection.
+2. Search for **PT Alarm**. If it isn't in the catalog yet, choose **Add from link** and paste `https://github.com/powertbs/pt-alarm`. Adding from a link requires a one-time GitHub connection.
 3. Install it. Because PT Alarm is set up from the UI, it loads without a restart.
 
 ### HACS (Home Assistant 2026.10 and older)
 
-In HACS, open the menu ⋮ → **Custom repositories**, add `https://github.com/YOUR_GITHUB_USERNAME/pt-alarm` with the category **Integration**, install it, and restart Home Assistant.
+In HACS, open the menu ⋮ → **Custom repositories**, add `https://github.com/powertbs/pt-alarm` with the category **Integration**, install it, and restart Home Assistant.
 
 ### Manual
 
