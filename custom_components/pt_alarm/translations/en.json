@@ -1,0 +1,222 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create a PT Alarm panel",
+        "description": "Give your alarm panel a name. You can add a first user code now, or add users later from the integration's **Configure** menu.",
+        "data": {
+          "name": "Panel name",
+          "user_name": "First user name",
+          "code": "First user code (optional)"
+        },
+        "data_description": {
+          "code": "At least 4 characters. Digits-only codes give you a numeric keypad."
+        }
+      }
+    },
+    "error": {
+      "code_too_short": "The code must be at least 4 characters."
+    },
+    "abort": {
+      "already_configured": "A panel with this name already exists."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PT Alarm configuration",
+        "description": "{sensors} sensor(s) and {users} user(s) configured. Make your changes, then choose **Save and close**.",
+        "menu_options": {
+          "general": "General settings",
+          "modes": "Arm modes and delays",
+          "sensor_add": "Add sensors",
+          "sensor_edit": "Edit a sensor",
+          "sensor_remove": "Remove sensors",
+          "user_add": "Add a user code",
+          "user_remove": "Remove user codes",
+          "actions": "Sirens and notifications",
+          "save": "Save and close"
+        }
+      },
+      "general": {
+        "title": "General settings",
+        "data": {
+          "code_arm_required": "Require code to arm",
+          "code_disarm_required": "Require code to disarm",
+          "auto_bypass": "Automatically bypass open sensors when arming",
+          "disarm_after_trigger": "Disarm after the trigger time ends",
+          "max_attempts": "Invalid code attempts before lockout (0 = never)",
+          "lockout_time": "Lockout duration"
+        }
+      },
+      "modes": {
+        "title": "Arm modes",
+        "data": {
+          "mode": "Mode to configure"
+        }
+      },
+      "mode_settings": {
+        "title": "Mode: {mode}",
+        "description": "Exit delay: time to leave after arming. Entry delay: time to disarm after a delayed sensor opens. Trigger time: how long the alarm stays triggered (0 = until disarmed).",
+        "data": {
+          "enabled": "Enabled",
+          "exit_time": "Exit delay",
+          "entry_time": "Entry delay",
+          "trigger_time": "Trigger time"
+        }
+      },
+      "sensor_add": {
+        "title": "Add sensors",
+        "description": "Choose sensors and a type. Each type has sensible defaults that you can fine-tune afterwards with **Edit a sensor**.",
+        "data": {
+          "entities": "Sensors",
+          "type": "Sensor type"
+        }
+      },
+      "sensor_edit": {
+        "title": "Edit a sensor",
+        "data": {
+          "entity": "Sensor"
+        }
+      },
+      "sensor_settings": {
+        "title": "Sensor settings",
+        "description": "Settings for `{entity}`.",
+        "data": {
+          "type": "Sensor type",
+          "modes": "Active in modes",
+          "immediate": "Trigger immediately (skip entry delay)",
+          "always_on": "Always on (24 hours, even when disarmed)",
+          "allow_open": "Allow open when arming",
+          "trigger_unavailable": "Trigger when unavailable"
+        }
+      },
+      "sensor_remove": {
+        "title": "Remove sensors",
+        "data": {
+          "entities": "Sensors to remove"
+        }
+      },
+      "user_add": {
+        "title": "Add a user code",
+        "description": "Codes are stored hashed and cannot be read back.",
+        "data": {
+          "name": "Name",
+          "code": "Code",
+          "can_arm": "Can arm",
+          "can_disarm": "Can disarm"
+        }
+      },
+      "user_remove": {
+        "title": "Remove user codes",
+        "data": {
+          "users": "Users to remove"
+        }
+      },
+      "actions": {
+        "title": "Sirens and notifications",
+        "data": {
+          "siren_entities": "Sirens (turned on when triggered)",
+          "notify_services": "Notification services",
+          "notify_events": "Notify on these events"
+        },
+        "data_description": {
+          "notify_services": "For example notify.mobile_app_my_phone. Custom values are allowed."
+        }
+      }
+    },
+    "error": {
+      "code_too_short": "The code must be at least 4 characters.",
+      "user_exists": "A user with this name already exists."
+    }
+  },
+  "selector": {
+    "arm_mode": {
+      "options": {
+        "armed_away": "Away",
+        "armed_home": "Home",
+        "armed_night": "Night",
+        "armed_vacation": "Vacation",
+        "armed_custom_bypass": "Custom"
+      }
+    },
+    "arm_mode_short": {
+      "options": {
+        "away": "Away",
+        "home": "Home",
+        "night": "Night",
+        "vacation": "Vacation",
+        "custom_bypass": "Custom"
+      }
+    },
+    "sensor_type": {
+      "options": {
+        "door": "Door",
+        "window": "Window",
+        "motion": "Motion",
+        "tamper": "Tamper",
+        "environmental": "Environmental (smoke, water, gas)",
+        "other": "Other"
+      }
+    },
+    "notify_event": {
+      "options": {
+        "arming": "Arming (exit delay started)",
+        "armed": "Armed",
+        "disarmed": "Disarmed",
+        "pending": "Entry delay started",
+        "triggered": "Triggered",
+        "failed_to_arm": "Failed to arm",
+        "invalid_code": "Invalid code entered",
+        "locked_out": "Keypad locked out"
+      }
+    }
+  },
+  "services": {
+    "arm": {
+      "name": "Arm",
+      "description": "Arm a PT Alarm panel, with optional force arming and delay skipping.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "The arm mode."
+        },
+        "code": {
+          "name": "Code",
+          "description": "User code, if required."
+        },
+        "force": {
+          "name": "Force",
+          "description": "Arm even when sensors are open; the open sensors are bypassed."
+        },
+        "skip_delay": {
+          "name": "Skip exit delay",
+          "description": "Arm immediately without the exit delay."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "mode_not_enabled": {
+      "message": "Arm mode {mode} is not enabled for this panel."
+    },
+    "disarm_first": {
+      "message": "The alarm is triggered. Disarm it first."
+    },
+    "open_sensors": {
+      "message": "Cannot arm, these sensors are open: {sensors}"
+    },
+    "code_required": {
+      "message": "A code is required."
+    },
+    "invalid_code": {
+      "message": "Invalid code."
+    },
+    "not_allowed": {
+      "message": "This user is not allowed to do that."
+    },
+    "locked_out": {
+      "message": "Too many invalid codes. Try again in {seconds} seconds."
+    }
+  }
+}

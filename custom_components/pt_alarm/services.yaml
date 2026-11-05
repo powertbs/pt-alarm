@@ -1,0 +1,33 @@
+arm:
+  target:
+    entity:
+      integration: pt_alarm
+      domain: alarm_control_panel
+  fields:
+    mode:
+      required: true
+      example: away
+      selector:
+        select:
+          translation_key: arm_mode_short
+          options:
+            - away
+            - home
+            - night
+            - vacation
+            - custom_bypass
+    code:
+      required: false
+      selector:
+        text:
+          type: password
+    force:
+      required: false
+      default: false
+      selector:
+        boolean:
+    skip_delay:
+      required: false
+      default: false
+      selector:
+        boolean:

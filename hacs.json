@@ -1,0 +1,7 @@
+{
+  "name": "PT Alarm",
+  "content_in_root": false,
+  "homeassistant": "2025.1.0",
+  "zip_release": true,
+  "filename": "pt_alarm.zip"
+}
