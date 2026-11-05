@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "pt_alarm"
 NAME = "PT Alarm"
-VERSION = "1.0.0"
+VERSION = "0.0.1"
 MANUFACTURER = "PowerTech Security & Communications"
 
 PLATFORMS: list[Platform] = [Platform.ALARM_CONTROL_PANEL]

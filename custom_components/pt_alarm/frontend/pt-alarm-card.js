@@ -2,7 +2,7 @@
  * PT Alarm Card - dashboard card for the PT Alarm integration.
  * Served and auto-registered by the integration; no manual resource needed.
  */
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "0.0.1";
 const ASSET_BASE = "/pt_alarm_static";
 const COMPANY_URL = "https://powertbs.com/";
 

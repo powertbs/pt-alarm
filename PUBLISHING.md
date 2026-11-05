@@ -35,7 +35,7 @@ Since Home Assistant 2026.11, HACS is built into Home Assistant as the **Marketp
 
 ## 3. Create a release
 
-1. Go to **Releases → Draft a new release**, create the tag `v1.0.0` and set the title `v1.0.0`, then **Publish release**.
+1. Go to **Releases → Draft a new release**, create the tag `v0.0.1` and set the title `v0.0.1`, then **Publish release**.
 2. The **Release** workflow attaches `pt_alarm.zip` automatically. The Marketplace installs from that file (`zip_release` in `hacs.json`).
 
 People can now install it through **Settings → Marketplace → Add from link**.
@@ -56,6 +56,6 @@ You must submit this from your **personal** GitHub account, not an organization.
 
 1. Bump `VERSION` in `const.py`, `version` in `manifest.json` and `CARD_VERSION` in `frontend/pt-alarm-card.js`.
 2. If a release needs a newer Home Assistant version, raise `homeassistant` in `hacs.json`.
-3. Publish a new GitHub release (`v1.0.1`, and so on). The Marketplace offers it as an update.
+3. Publish a new GitHub release (`v0.0.2`, and so on). The Marketplace offers it as an update.
 
 Users report Marketplace bugs to Home Assistant, but PT Alarm bugs come to **your** GitHub issues, so keep an eye on them.
