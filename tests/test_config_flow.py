@@ -16,20 +16,22 @@ USER_FIELDS = {
 }
 
 
-async def _create(hass: HomeAssistant, sensors=None, **user):
+async def _create(hass: HomeAssistant, sensors=None, automations=None, **user):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"name": "Home", **user}
     )
+    assert result["step_id"] == "automations"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], automations or {})
     assert result["step_id"] == "sensors"
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entities": list(sensors or {})}
     )
-    if sensors:
-        assert result["step_id"] == "sensor_types"
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], sensors)
+    for details in (sensors or {}).values():
+        assert result["step_id"] == "sensor_details"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], details)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     return result
@@ -50,23 +52,37 @@ async def test_user_flow_with_sensors_and_type_guessing(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"name": "Home", "user_name": "Bob", "code": "4321"}
     )
+    assert result["step_id"] == "automations"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"automation_allowed": True, "automation_open_zones": "bypass"}
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entities": ["binary_sensor.front", "binary_sensor.hall"]}
     )
-    assert result["step_id"] == "sensor_types"
-    # The type dropdowns are pre-filled from the device class
-    defaults = {str(k): k.default() for k in result["data_schema"].schema}
-    assert defaults == {"binary_sensor.front": "door", "binary_sensor.hall": "motion"}
-
+    # One screen per sensor, pre-filled with its name and guessed type
+    assert result["step_id"] == "sensor_details"
+    assert result["description_placeholders"]["number"] == "1"
+    defaults = {str(k): k.default() for k in result["data_schema"].schema if str(k) != "area"}
+    assert defaults == {"name": "front", "type": "door", "zone_type": "entry_exit_1", "chime": True}
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"binary_sensor.front": "door", "binary_sensor.hall": "window"}
+        result["flow_id"], {"name": "Front door", "type": "door"}
+    )
+    assert result["step_id"] == "sensor_details"
+    defaults = {str(k): k.default() for k in result["data_schema"].schema if str(k) != "area"}
+    assert defaults == {"name": "hall", "type": "motion", "zone_type": "interior_follower", "chime": False}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Hall", "type": "motion", "zone_type": "interior"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     options = result["options"]
     assert options["sensors"]["binary_sensor.front"]["type"] == "door"
-    assert options["sensors"]["binary_sensor.hall"]["type"] == "window"
-    assert options["sensors"]["binary_sensor.hall"]["immediate"] is True
+    assert options["sensors"]["binary_sensor.front"]["name"] == "Front door"
+    assert options["sensors"]["binary_sensor.hall"]["type"] == "motion"
+    assert options["sensors"]["binary_sensor.hall"]["zone_type"] == "interior"
     assert options["users"][0]["name"] == "Bob"
+    assert options["automation_allowed"] is True
+    assert options["automation_open_zones"] == "bypass"
+    assert options["automation_anonymous"] is False
     assert options["users"][0]["can_bypass"] is True
     assert "4321" not in str(options["users"])
 
@@ -84,8 +100,8 @@ async def test_options_flow_saves_each_change_immediately(hass: HomeAssistant):
 
     await configure(fid, {"next_step_id": "sensor_add"})
     result = await configure(fid, {"entities": ["binary_sensor.door"]})
-    assert result["step_id"] == "sensor_types"
-    result = await configure(fid, {"binary_sensor.door": "door"})
+    assert result["step_id"] == "sensor_details"
+    result = await configure(fid, {"name": "Back door", "type": "door"})
     assert result["type"] is FlowResultType.MENU
     await hass.async_block_till_done()
     # Saved already, without any "save" step
@@ -130,4 +146,68 @@ async def test_options_flow_saves_each_change_immediately(hass: HomeAssistant):
     state = hass.states.get("alarm_control_panel.home")
     assert state is not None
     assert state.attributes["code_format"] == "number"
-    assert hass.states.get("sensor.home_door").state == "closed"
+    assert hass.states.get("sensor.home_back_door").state == "closed"
+
+
+async def test_empty_submit_goes_back_to_menu(hass: HomeAssistant):
+    result = await _create(hass)
+    entry = result["result"]
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    fid = flow["flow_id"]
+    configure = hass.config_entries.options.async_configure
+
+    for step in ("sensor_add", "modes", "user_add"):
+        result = await configure(fid, {"next_step_id": step})
+        assert result["step_id"] == step
+        result = await configure(fid, {})
+        assert result["type"] is FlowResultType.MENU, step
+
+    result = await configure(fid, {"next_step_id": "user_add"})
+    result = await configure(fid, {"name": "Dan"})
+    assert result["errors"] == {"code": "code_too_short"}
+
+
+async def test_user_partitions_are_kept_in_sync(hass: HomeAssistant):
+    office = (await _create(hass))["result"]
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Warehouse"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"entities": []})
+    warehouse = result["result"]
+    await hass.async_block_till_done()
+
+    flow = await hass.config_entries.options.async_init(office.entry_id)
+    fid = flow["flow_id"]
+    configure = hass.config_entries.options.async_configure
+    result = await configure(fid, {"next_step_id": "user_add"})
+    assert "partitions" in [str(k) for k in result["data_schema"].schema]
+
+    # Manager: both partitions. Worker: warehouse only.
+    await configure(fid, {"name": "Manager", "code": "1111", **USER_FIELDS,
+                          "partitions": [office.entry_id, warehouse.entry_id]})
+    await configure(fid, {"next_step_id": "user_add"})
+    await configure(fid, {"name": "Worker", "code": "2222", **USER_FIELDS,
+                          "partitions": [warehouse.entry_id]})
+    await hass.async_block_till_done()
+    assert [u["name"] for u in office.options["users"]] == ["Manager"]
+    assert [u["name"] for u in warehouse.options["users"]] == ["Manager", "Worker"]
+
+    # Take the manager out of the warehouse
+    manager_id = office.options["users"][0]["id"]
+    await configure(fid, {"next_step_id": "user_edit"})
+    result = await configure(fid, {"user": manager_id})
+    defaults = {str(k): k.default() for k in result["data_schema"].schema if str(k) == "partitions"}
+    assert sorted(defaults["partitions"]) == sorted([office.entry_id, warehouse.entry_id])
+    await configure(fid, {"name": "Manager", **USER_FIELDS, "partitions": [office.entry_id]})
+    await hass.async_block_till_done()
+    assert [u["name"] for u in warehouse.options["users"]] == ["Worker"]
+
+    # Removing a user deletes it from every partition
+    worker_id = warehouse.options["users"][0]["id"]
+    flow2 = await hass.config_entries.options.async_init(warehouse.entry_id)
+    await configure(flow2["flow_id"], {"next_step_id": "user_remove"})
+    await configure(flow2["flow_id"], {"users": [worker_id]})
+    await hass.async_block_till_done()
+    assert warehouse.options["users"] == []

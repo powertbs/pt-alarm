@@ -8,19 +8,22 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.helpers import area_registry as ar, entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
-    CONF_ALLOW_OPEN,
-    CONF_ALWAYS_ON,
-    CONF_IMMEDIATE,
-    CONF_SENSOR_MODES,
+    CONF_AREA,
+    CONF_SENSOR_NAME,
     CONF_SENSORS,
     CONF_TRIGGER_UNAVAILABLE,
+    CONF_CHIME,
     CONF_TYPE,
+    CONF_ZONE_TYPE,
+    TROUBLE_ZONES,
+    zone_armed_in,
     DOMAIN,
     OPEN_STATES,
     UNAVAILABLE_STATES,
@@ -28,11 +31,23 @@ from .const import (
 )
 from .helpers import merged_options
 
-ZONE_CLOSED = "closed"
-ZONE_OPEN = "open"
 ZONE_BYPASSED = "bypassed"
 ZONE_ALARM = "alarm"
-ZONE_STATES = [ZONE_CLOSED, ZONE_OPEN, ZONE_BYPASSED, ZONE_ALARM]
+
+# (normal, active) state words per sensor type
+TYPE_WORDS: dict[str, tuple[str, str]] = {
+    "door": ("closed", "open"),
+    "window": ("closed", "open"),
+    "other": ("closed", "open"),
+    "motion": ("clear", "motion"),
+    "tamper": ("ok", "tampered"),
+    "environmental": ("clear", "detected"),
+}
+
+
+def zone_words(sensor_type: str | None) -> tuple[str, str]:
+    """Normal and active state words for a sensor type."""
+    return TYPE_WORDS.get(sensor_type or "other", TYPE_WORDS["other"])
 
 
 def is_open(sensor: dict[str, Any], state_value: str | None) -> bool:
@@ -49,7 +64,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create the zone sensors."""
+    from .alarm_control_panel import normalize_sensors  # noqa: PLC0415
+
     sensors: dict[str, dict] = merged_options(dict(entry.options))[CONF_SENSORS]
+    normalize_sensors(hass, sensors)
     entities: list[SensorEntity] = [
         PTAlarmZoneSensor(entry, entity_id, cfg) for entity_id, cfg in sensors.items()
     ]
@@ -110,20 +128,34 @@ class PTAlarmZoneSensor(_PanelLinkedSensor):
     """Status of one alarm zone: closed, open, bypassed or alarm."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ZONE_STATES
-    _attr_translation_key = "zone"
 
     def __init__(self, entry: ConfigEntry, entity_id: str, cfg: dict[str, Any]) -> None:
         super().__init__(entry, [entity_id])
         self._source = entity_id
         self._cfg = cfg
+        sensor_type = cfg.get(CONF_TYPE) if cfg.get(CONF_TYPE) in TYPE_WORDS else "other"
+        self._normal, self._active = zone_words(sensor_type)
+        self._attr_translation_key = f"zone_{sensor_type}"
+        self._attr_options = [self._normal, self._active, ZONE_BYPASSED, ZONE_ALARM]
         self._attr_unique_id = f"{entry.entry_id}_zone_{entity_id}"
-        self._attr_name = entity_id.split(".", 1)[1].replace("_", " ").capitalize()
+        self._custom_name = (cfg.get(CONF_SENSOR_NAME) or "").strip()
+        self._attr_name = self._custom_name or entity_id.split(".", 1)[1].replace("_", " ").capitalize()
+
+    async def async_added_to_hass(self) -> None:
+        """Put the zone sensor in the configured area."""
+        await super().async_added_to_hass()
+        area = self._cfg.get(CONF_AREA)
+        registry = er.async_get(self.hass)
+        entry = registry.async_get(self.entity_id)
+        if area and entry is not None and entry.area_id != area:
+            registry.async_update_entity(self.entity_id, area_id=area)
 
     def _update(self) -> None:
         source = self.hass.states.get(self._source)
-        if source is not None and source.name:
+        if not self._custom_name and source is not None and source.name:
             self._attr_name = source.name
+        area_id = self._cfg.get(CONF_AREA)
+        area = ar.async_get(self.hass).async_get_area(area_id) if area_id else None
         bypassed, triggered_by, panel_state = _panel_info(self.hass, self._entry)
 
         raw = source.state if source else None
@@ -136,18 +168,20 @@ class PTAlarmZoneSensor(_PanelLinkedSensor):
         elif self._source in bypassed:
             value = ZONE_BYPASSED
         elif open_now:
-            value = ZONE_OPEN
+            value = self._active
         else:
-            value = ZONE_CLOSED
+            value = self._normal
         self._attr_native_value = value
         self._attr_extra_state_attributes = {
             ATTR_ENTITY_ID: self._source,
+            "location": area.name if area else None,
             "source_state": raw,
-            "zone_type": self._cfg.get(CONF_TYPE),
-            "active_modes": self._cfg.get(CONF_SENSOR_MODES, []),
-            "immediate": self._cfg.get(CONF_IMMEDIATE, False),
-            "always_on": self._cfg.get(CONF_ALWAYS_ON, False),
-            "allow_open": self._cfg.get(CONF_ALLOW_OPEN, False),
+            "device_kind": self._cfg.get(CONF_TYPE),
+            "zone_type": self._cfg.get(CONF_ZONE_TYPE),
+            "armed_in_away": zone_armed_in(self._cfg.get(CONF_ZONE_TYPE, ""), "armed_away"),
+            "armed_in_stay": zone_armed_in(self._cfg.get(CONF_ZONE_TYPE, ""), "armed_home"),
+            "trouble_zone": self._cfg.get(CONF_ZONE_TYPE) in TROUBLE_ZONES,
+            "chime": bool(self._cfg.get(CONF_CHIME)),
             "is_open": open_now,
             "bypassed": self._source in bypassed,
         }
@@ -180,5 +214,7 @@ class PTAlarmOpenZonesSensor(_PanelLinkedSensor):
         }
 
     def _name(self, entity_id: str) -> str:
+        if custom := (self._sensors.get(entity_id, {}).get(CONF_SENSOR_NAME) or "").strip():
+            return custom
         state = self.hass.states.get(entity_id)
         return state.name if state and state.name else entity_id

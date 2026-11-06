@@ -18,13 +18,21 @@ from .const import (
     CONF_NUMERIC,
     CONF_SALT,
     CONF_START_TIME,
+    CONF_TYPE,
     CONF_VALID_FROM,
     CONF_VALID_UNTIL,
     DEFAULT_END_TIME,
     DEFAULT_MODE_SETTINGS,
     DEFAULT_OPTIONS,
     DEFAULT_START_TIME,
+    CONF_ZONE_TYPE,
+    DEVICE_CLASS_ZONE_TYPES,
+    KIND_ZONE_TYPES,
+    SENSOR_DOOR,
+    SENSOR_OTHER,
     WEEKDAYS,
+    ZONE_TYPES,
+    ZT_PERIMETER,
 )
 
 HASH_ITERATIONS = 60_000
@@ -54,6 +62,16 @@ def merged_options(options: dict[str, Any] | None) -> dict[str, Any]:
     result = copy.deepcopy(DEFAULT_OPTIONS)
     for key, value in (options or {}).items():
         result[key] = copy.deepcopy(value)
+
+    # Old single list of notify services -> the push channel.
+    raw = options or {}
+    if raw.get("notify_services") and "push_services" not in raw:
+        result["push_services"] = list(raw["notify_services"])
+        old = raw.get("notify_events") or []
+        events = [e for e in old if e != "triggered"]
+        if "triggered" in old:
+            events += ["alarm", "fire"]
+        result["push_events"] = events
 
     modes = copy.deepcopy(DEFAULT_MODE_SETTINGS)
     for mode in ARM_MODES:
@@ -116,3 +134,15 @@ def schedule_text(user: dict[str, Any]) -> str:
     if user.get("blocked_by"):
         text += ", not on holidays"
     return text
+
+
+def zone_type_of(sensor: dict[str, Any], device_class: str | None = None) -> str:
+    """Zone type of a configured sensor (migrates sensors set up before zone types)."""
+    if (zone_type := sensor.get(CONF_ZONE_TYPE)) in ZONE_TYPES:
+        return zone_type
+    if device_class and device_class in DEVICE_CLASS_ZONE_TYPES:
+        return DEVICE_CLASS_ZONE_TYPES[device_class]
+    kind = sensor.get(CONF_TYPE, SENSOR_OTHER)
+    if kind == SENSOR_DOOR and sensor.get("immediate"):
+        return ZT_PERIMETER
+    return KIND_ZONE_TYPES.get(kind, ZT_PERIMETER)

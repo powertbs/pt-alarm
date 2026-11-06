@@ -20,9 +20,37 @@
           "entities": "Sensors"
         }
       },
-      "sensor_types": {
-        "title": "Sensor types",
-        "description": "Choose a type for each sensor. The type sets sensible defaults (active modes, entry delay or immediate). We guessed where we could.\n\n{sensors}"
+      "sensor_details": {
+        "title": "Sensor {number} of {total}",
+        "description": "`{entity}`\n\nName the zone, choose how it behaves (zone type), what device it is and where it is.",
+        "data": {
+          "name": "Name",
+          "zone_type": "Zone type",
+          "type": "Device",
+          "area": "Location",
+          "chime": "Chime when opened (while disarmed)"
+        },
+        "data_description": {
+          "name": "Shown on the device page, the card, notifications and the activity log.",
+          "zone_type": "Entry/Exit 1 and 2 give an entry delay (2 is usually the longer one, e.g. a back door). Perimeter is instant. Interior zones are off in Stay; an interior follower waits for a running entry delay. Fire is always on. Supervisory and Tamper only report a trouble.",
+          "type": "What the device is. Sets the icon and wording (Open, Motion, Detected).",
+          "area": "Optional. Notifications will say, for example, \"Front door in Hallway\".",
+          "chime": "Plays a chime on the dashboard card when this zone opens while disarmed."
+        }
+      },
+      "automations": {
+        "title": "Automations and access control",
+        "description": "Choose whether automations, schedules and access control systems (for example UniFi Access) may arm and disarm this partition with the pt_alarm.arm and pt_alarm.disarm actions. A disarm is never accepted while the alarm is sounding.",
+        "data": {
+          "automation_allowed": "Allow arming and disarming by automations",
+          "automation_open_zones": "When an automation arms while zones are open",
+          "automation_anonymous": "Trust access control: allow disarm without a PT user"
+        },
+        "data_description": {
+          "automation_allowed": "Off: only the keypad (with a code) can arm and disarm.",
+          "automation_open_zones": "Refuse and notify, or bypass the open zones, arm, and notify which zones were bypassed.",
+          "automation_anonymous": "On: a disarm from an automation or access system is accepted even if the person is not a PT user (their name is still logged if it is sent). Names that match a PT user always follow that user's rules."
+        }
       }
     },
     "error": {
@@ -36,49 +64,60 @@
     "step": {
       "init": {
         "title": "PT Alarm configuration",
-        "description": "{sensors} sensor(s) and {users} user(s) configured. Each change is saved as soon as you click **Submit**. Close this window when you are done.",
+        "description": "{sensors} sensor(s) and {users} user(s) configured. Each change is saved as soon as you click **Submit**. On any screen, clicking **Submit** without picking or changing anything brings you back here. Use the X to close.",
         "menu_options": {
-          "general": "General settings",
-          "modes": "Arm modes and delays",
+          "general": "General settings and entry delays",
+          "modes": "Arm modes",
           "sensor_add": "Add sensors",
           "sensor_edit": "Edit a sensor",
           "sensor_remove": "Remove sensors",
           "user_add": "Add a user",
           "user_edit": "Edit a user",
           "user_remove": "Remove users",
-          "actions": "Sirens and notifications"
+          "automations": "Automations and access control",
+          "notifications": "Notifications (email, push and SMS)",
+          "notify_test": "Send a test notification",
+          "sirens": "Sirens"
         }
       },
       "general": {
-        "title": "General settings",
+        "title": "General settings and entry delays",
         "data": {
+          "entry_delay_1": "Entry delay 1",
+          "entry_delay_2": "Entry delay 2",
           "code_arm_required": "Require code to arm",
           "code_disarm_required": "Require code to disarm",
           "auto_bypass": "Automatically bypass open sensors when arming",
           "disarm_after_trigger": "Disarm after the trigger time ends",
           "max_attempts": "Invalid code attempts before lockout (0 = never)",
           "lockout_time": "Lockout duration"
+        },
+        "description": "Click **Submit** without changes to go back to the menu.",
+        "data_description": {
+          "entry_delay_1": "Used by Entry/Exit 1 zones, for example the front door.",
+          "entry_delay_2": "Used by Entry/Exit 2 zones, usually longer, for example a back or garage door."
         }
       },
       "modes": {
         "title": "Arm modes",
         "data": {
           "mode": "Mode to configure"
-        }
+        },
+        "description": "Leave empty and click **Submit** to go back to the menu."
       },
       "mode_settings": {
         "title": "Mode: {mode}",
-        "description": "Exit delay: time to leave after arming. Entry delay: time to disarm after a delayed sensor opens. Trigger time: how long the alarm stays triggered (0 = until disarmed).",
+        "description": "Exit delay: time to leave after arming. Trigger time: how long the siren sounds (0 = until disarmed). Instant: entry/exit zones alarm immediately in this mode (no entry delay).",
         "data": {
           "enabled": "Enabled",
           "exit_time": "Exit delay",
-          "entry_time": "Entry delay",
-          "trigger_time": "Trigger time"
+          "trigger_time": "Trigger (siren) time",
+          "instant": "Instant (no entry delay)"
         }
       },
       "sensor_add": {
         "title": "Add sensors",
-        "description": "Choose the sensors to add. On the next screen you choose a type for each one.",
+        "description": "Choose the sensors to add. On the next screen you choose a type for each one.\n\nLeave empty and click **Submit** to go back to the menu.",
         "data": {
           "entities": "Sensors"
         }
@@ -87,29 +126,34 @@
         "title": "Edit a sensor",
         "data": {
           "entity": "Sensor"
-        }
+        },
+        "description": "Leave empty and click **Submit** to go back to the menu."
       },
       "sensor_settings": {
         "title": "Sensor settings",
-        "description": "Settings for `{entity}`.",
+        "description": "Settings for `{entity}`.\n\nClick **Submit** without changes to go back to the menu.",
         "data": {
-          "type": "Sensor type",
-          "modes": "Active in modes",
-          "immediate": "Trigger immediately (skip entry delay)",
-          "always_on": "Always on (24 hours, even when disarmed)",
-          "allow_open": "Allow open when arming",
-          "trigger_unavailable": "Trigger when unavailable"
+          "name": "Name",
+          "area": "Location",
+          "zone_type": "Zone type",
+          "type": "Device",
+          "chime": "Chime when opened (while disarmed)",
+          "trigger_unavailable": "Treat unavailable as open"
+        },
+        "data_description": {
+          "zone_type": "Entry/Exit 1 and 2 give an entry delay (2 is usually the longer one, e.g. a back door). Perimeter is instant. Interior zones are off in Stay; an interior follower waits for a running entry delay. Fire is always on. Supervisory and Tamper only report a trouble."
         }
       },
       "sensor_remove": {
         "title": "Remove sensors",
         "data": {
           "entities": "Sensors to remove"
-        }
+        },
+        "description": "Leave empty and click **Submit** to go back to the menu."
       },
       "user_add": {
         "title": "Add a user",
-        "description": "Codes are stored hashed and cannot be read back.",
+        "description": "Codes are stored hashed and cannot be read back.\n\nLeave the name and code empty and click **Submit** to go back to the menu.",
         "data": {
           "name": "Name",
           "code": "Code",
@@ -121,41 +165,32 @@
           "end_time": "Allowed until (time)",
           "valid_from": "Valid from (date, optional)",
           "valid_until": "Valid until (date, optional)",
-          "blocked_by": "Not allowed while (holidays, optional)"
+          "blocked_by": "Not allowed while (holidays, optional)",
+          "partitions": "Partitions",
+          "access_ids": "Access IDs (optional)"
         },
         "data_description": {
           "code": "At least 4 characters. Digits only gives a numeric keypad.",
           "start_time": "If the start is later than the end (for example 22:00 to 06:00), the window runs overnight.",
           "valid_until": "Leave the dates empty for a permanent code.",
-          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch."
+          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch.",
+          "partitions": "Which partitions this code works in. The same user and code are kept in sync in every partition you tick.",
+          "access_ids": "Names or IDs this person has in your access control system (for example their UniFi Access name or card number). Automations can then arm or disarm as this user."
         }
       },
       "user_remove": {
         "title": "Remove users",
         "data": {
           "users": "Users to remove"
-        }
-      },
-      "actions": {
-        "title": "Sirens and notifications",
-        "data": {
-          "siren_entities": "Sirens (turned on when triggered)",
-          "notify_services": "Notification services",
-          "notify_events": "Notify on these events"
         },
-        "data_description": {
-          "notify_services": "For example notify.mobile_app_my_phone. Custom values are allowed."
-        }
-      },
-      "sensor_types": {
-        "title": "Sensor types",
-        "description": "Choose a type for each sensor. The type sets sensible defaults (active modes, entry delay or immediate). We guessed where we could.\n\n{sensors}"
+        "description": "Removed users are deleted from every partition.\n\nLeave empty and click **Submit** to go back to the menu."
       },
       "user_edit": {
         "title": "Edit a user",
         "data": {
           "user": "User"
-        }
+        },
+        "description": "Leave empty and click **Submit** to go back to the menu."
       },
       "user_settings": {
         "title": "Edit user: {user}",
@@ -170,13 +205,80 @@
           "end_time": "Allowed until (time)",
           "valid_from": "Valid from (date, optional)",
           "valid_until": "Valid until (date, optional)",
-          "blocked_by": "Not allowed while (holidays, optional)"
+          "blocked_by": "Not allowed while (holidays, optional)",
+          "partitions": "Partitions",
+          "access_ids": "Access IDs (optional)"
         },
         "data_description": {
           "code": "Leave empty to keep the current code.",
           "start_time": "If the start is later than the end (for example 22:00 to 06:00), the window runs overnight.",
           "valid_until": "Leave the dates empty for a permanent code.",
-          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch."
+          "blocked_by": "The code is refused while any of these is on, for example a Holiday calendar, a Yom Tov sensor or a vacation switch.",
+          "partitions": "Which partitions this code works in. The same user and code are kept in sync in every partition you tick.",
+          "access_ids": "Names or IDs this person has in your access control system (for example their UniFi Access name or card number). Automations can then arm or disarm as this user."
+        },
+        "description": "Click **Submit** without changes to go back to the menu."
+      },
+      "sensor_details": {
+        "title": "Sensor {number} of {total}",
+        "description": "`{entity}`\n\nName the zone, choose how it behaves (zone type), what device it is and where it is.",
+        "data": {
+          "name": "Name",
+          "zone_type": "Zone type",
+          "type": "Device",
+          "area": "Location",
+          "chime": "Chime when opened (while disarmed)"
+        },
+        "data_description": {
+          "name": "Shown on the device page, the card, notifications and the activity log.",
+          "zone_type": "Entry/Exit 1 and 2 give an entry delay (2 is usually the longer one, e.g. a back door). Perimeter is instant. Interior zones are off in Stay; an interior follower waits for a running entry delay. Fire is always on. Supervisory and Tamper only report a trouble.",
+          "type": "What the device is. Sets the icon and wording (Open, Motion, Detected).",
+          "area": "Optional. Notifications will say, for example, \"Front door in Hallway\".",
+          "chime": "Plays a chime on the dashboard card when this zone opens while disarmed."
+        }
+      },
+      "automations": {
+        "title": "Automations and access control",
+        "description": "Choose whether automations, schedules and access control systems (for example UniFi Access) may arm and disarm this partition with the pt_alarm.arm and pt_alarm.disarm actions. A disarm is never accepted while the alarm is sounding.\n\nClick **Submit** without changes to go back to the menu.",
+        "data": {
+          "automation_allowed": "Allow arming and disarming by automations",
+          "automation_open_zones": "When an automation arms while zones are open",
+          "automation_anonymous": "Trust access control: allow disarm without a PT user"
+        },
+        "data_description": {
+          "automation_allowed": "Off: only the keypad (with a code) can arm and disarm.",
+          "automation_open_zones": "Refuse and notify, or bypass the open zones, arm, and notify which zones were bypassed.",
+          "automation_anonymous": "On: a disarm from an automation or access system is accepted even if the person is not a PT user (their name is still logged if it is sent). Names that match a PT user always follow that user's rules."
+        }
+      },
+      "sirens": {
+        "title": "Sirens",
+        "description": "These are turned on when the alarm sounds and off when it is disarmed or the siren time ends.\n\nClick **Submit** without changes to go back to the menu.",
+        "data": {
+          "siren_entities": "Sirens, switches, lights or scripts"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Pick the notifiers you already set up in Home Assistant (for example an SMTP email notifier, the mobile app or Twilio SMS) and tick the events for each channel. Untick an event to stop it.\n\nClick **Submit** without changes to go back to the menu.",
+        "data": {
+          "email_services": "Email: notify services",
+          "email_html": "Email: use the PowerTech HTML design",
+          "email_events": "Email: send for these events",
+          "push_services": "Push / SMS: phones, SMS or other notifiers",
+          "push_events": "Push / SMS: send for these events"
+        },
+        "data_description": {
+          "email_services": "Your email notifier, for example notify.email_notify (SMTP). Notifiers set up in YAML get the HTML email; notifiers set up from the UI (marked 'plain text') get a plain-text email.",
+          "email_html": "Branded email with a colored status banner. Put your own pt_alarm_email.html in the config folder to use your own design.",
+          "push_services": "For example notify.mobile_app_my_phone or notify.twilio_sms. Alarm and fire pushes break through quiet modes on phones."
+        }
+      },
+      "notify_test": {
+        "title": "Send a test notification",
+        "description": "Sends a test message to every service configured.\n\nEmail: {email}\nPush: {push}\n\nClick **Submit** without changes to go back to the menu.",
+        "data": {
+          "send": "Send the test now"
         }
       }
     },
@@ -185,16 +287,62 @@
       "user_exists": "A user with this name already exists.",
       "name_required": "Enter a name.",
       "no_days": "Choose at least one day.",
-      "dates_reversed": "The end date is before the start date."
+      "dates_reversed": "The end date is before the start date.",
+      "no_partitions": "Choose at least one partition."
     }
   },
   "entity": {
     "sensor": {
-      "zone": {
+      "zone_door": {
         "name": "Zone",
         "state": {
           "closed": "Closed",
           "open": "Open",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "zone_window": {
+        "name": "Zone",
+        "state": {
+          "closed": "Closed",
+          "open": "Open",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "zone_other": {
+        "name": "Zone",
+        "state": {
+          "closed": "Closed",
+          "open": "Open",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "zone_motion": {
+        "name": "Zone",
+        "state": {
+          "clear": "Clear",
+          "motion": "Motion",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "zone_tamper": {
+        "name": "Zone",
+        "state": {
+          "ok": "OK",
+          "tampered": "Tampered",
+          "bypassed": "Bypassed",
+          "alarm": "Alarm"
+        }
+      },
+      "zone_environmental": {
+        "name": "Zone",
+        "state": {
+          "clear": "Clear",
+          "detected": "Detected",
           "bypassed": "Bypassed",
           "alarm": "Alarm"
         }
@@ -208,7 +356,7 @@
     "arm_mode": {
       "options": {
         "armed_away": "Away",
-        "armed_home": "Home",
+        "armed_home": "Stay",
         "armed_night": "Night",
         "armed_vacation": "Vacation",
         "armed_custom_bypass": "Custom"
@@ -217,7 +365,8 @@
     "arm_mode_short": {
       "options": {
         "away": "Away",
-        "home": "Home",
+        "stay": "Stay",
+        "home": "Stay (home)",
         "night": "Night",
         "vacation": "Vacation",
         "custom_bypass": "Custom"
@@ -229,20 +378,8 @@
         "window": "Window",
         "motion": "Motion",
         "tamper": "Tamper",
-        "environmental": "Environmental (smoke, water, gas)",
+        "environmental": "Smoke, CO, water or other detector",
         "other": "Other"
-      }
-    },
-    "notify_event": {
-      "options": {
-        "arming": "Arming (exit delay started)",
-        "armed": "Armed",
-        "disarmed": "Disarmed",
-        "pending": "Entry delay started",
-        "triggered": "Triggered",
-        "failed_to_arm": "Failed to arm",
-        "invalid_code": "Invalid code entered",
-        "locked_out": "Keypad locked out"
       }
     },
     "weekday": {
@@ -254,6 +391,42 @@
         "fri": "Friday",
         "sat": "Saturday",
         "sun": "Sunday"
+      }
+    },
+    "zone_type": {
+      "options": {
+        "entry_exit_1": "Entry/Exit 1 (entry delay 1)",
+        "entry_exit_2": "Entry/Exit 2 (entry delay 2)",
+        "perimeter": "Perimeter (instant)",
+        "interior_follower": "Interior follower",
+        "interior": "Interior (instant)",
+        "fire": "Fire / CO (24 hours)",
+        "panic": "24-hour panic (audible alarm)",
+        "supervisory": "Supervisory (trouble only, e.g. water leak)",
+        "tamper": "Tamper (trouble only)"
+      }
+    },
+    "open_zones_action": {
+      "options": {
+        "refuse": "Refuse and notify",
+        "bypass": "Bypass the open zones, arm, and notify"
+      }
+    },
+    "notify_category": {
+      "options": {
+        "alarm": "Alarm (burglary / panic)",
+        "fire": "Fire alarm",
+        "arming": "Arming (exit delay started)",
+        "armed": "Armed",
+        "disarmed": "Disarmed",
+        "pending": "Entry delay started",
+        "bypassed": "Armed with bypassed zones",
+        "failed_to_arm": "Failed to arm (zones open)",
+        "invalid_code": "Wrong code entered",
+        "locked_out": "Keypad locked out",
+        "trouble": "Trouble (tamper / supervisory)",
+        "trouble_restored": "Trouble restored",
+        "access_denied": "Arm/disarm refused (automation / access control)"
       }
     }
   },
@@ -277,6 +450,32 @@
         "skip_delay": {
           "name": "Skip exit delay",
           "description": "Arm immediately without the exit delay."
+        },
+        "user": {
+          "name": "User",
+          "description": "PT user name or access ID (for example the person who badged in)."
+        },
+        "source": {
+          "name": "Source",
+          "description": "Shown in the activity log, e.g. 'UniFi Access - Front door'. Defaults to the automation's name."
+        }
+      }
+    },
+    "disarm": {
+      "name": "Disarm",
+      "description": "Disarm a PT Alarm partition with a code, or from an automation / access control system.",
+      "fields": {
+        "code": {
+          "name": "Code",
+          "description": "User code (keypad style)."
+        },
+        "user": {
+          "name": "User",
+          "description": "PT user name or access ID (for example the person who badged in)."
+        },
+        "source": {
+          "name": "Source",
+          "description": "Shown in the activity log, e.g. 'UniFi Access - Front door'. Defaults to the automation's name."
         }
       }
     }
@@ -304,10 +503,22 @@
       "message": "Too many invalid codes. Try again in {seconds} seconds."
     },
     "bypass_not_allowed": {
-      "message": "This user is not allowed to bypass open sensors."
+      "message": "Sorry, you don't have permission to bypass."
     },
     "outside_schedule": {
       "message": "The code for {user} is not valid at this time."
+    },
+    "automation_disabled": {
+      "message": "Arming and disarming by automations is turned off for this partition."
+    },
+    "automation_in_alarm": {
+      "message": "The alarm is sounding. It can only be disarmed at the keypad."
+    },
+    "automation_unknown_user": {
+      "message": "Unknown user: {user}."
+    },
+    "automation_anonymous": {
+      "message": "A user is required to disarm by automation."
     }
   }
 }

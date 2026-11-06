@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>$subject</title>
+</head>
+<!--
+  PT Alarm email template (PowerTech Security & Communications).
+  To use your own design, copy this file to your Home Assistant config folder as
+  "pt_alarm_email.html" and edit it. Placeholders:
+    $subject $title $subtitle $message $icon $color $partition $time $year
+    $rows (detail table rows) $button (Open Home Assistant button) $logo_url $preheader
+-->
+<body style="margin:0;padding:0;background:#eef0f3;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2933;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">$preheader</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef0f3;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:22px 24px 18px;border-bottom:1px solid #e6e8eb;">
+              <a href="https://powertbs.com/" style="text-decoration:none;">
+                <img src="$logo_url" width="230" alt="PowerTech Security &amp; Communications" style="display:block;border:0;max-width:230px;height:auto;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- Status banner -->
+          <tr>
+            <td style="padding:22px 24px 6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:$color;border-radius:12px;">
+                <tr>
+                  <td align="center" style="padding:24px 18px;color:#ffffff;">
+                    <div style="font-size:34px;line-height:1;">$icon</div>
+                    <div style="font-size:28px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:10px;">$title</div>
+                    <div style="font-size:15px;opacity:0.92;margin-top:6px;">$subtitle</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Message -->
+          <tr>
+            <td style="padding:14px 28px 4px;font-size:16px;line-height:1.5;text-align:center;color:#1f2933;">
+              $message
+            </td>
+          </tr>
+
+          <!-- Details -->
+          <tr>
+            <td style="padding:14px 24px 6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+                $rows
+              </table>
+            </td>
+          </tr>
+
+          <!-- Button -->
+          <tr>
+            <td align="center" style="padding:18px 24px 26px;">
+              $button
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:16px 24px 20px;background:#f6f7f9;border-top:1px solid #e6e8eb;font-size:12px;line-height:1.6;color:#6b7280;">
+              <strong style="color:#c62828;">PT Alarm</strong> by
+              <a href="https://powertbs.com/" style="color:#1f2933;text-decoration:none;font-weight:600;">PowerTech Security &amp; Communications</a><br>
+              <a href="https://powertbs.com/" style="color:#6b7280;">powertbs.com</a> &middot; $year<br>
+              You receive this email because notifications are turned on for $partition in Home Assistant.
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

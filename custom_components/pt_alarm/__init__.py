@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 import logging
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CARD_FILENAME, DOMAIN, FRONTEND_URL_BASE, PLATFORMS, VERSION
+from .const import (
+    CARD_FILENAME,
+    DATA_CONTEXT_SOURCES,
+    DOMAIN,
+    FRONTEND_URL_BASE,
+    PLATFORMS,
+    VERSION,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,8 +28,29 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the dashboard card so it is available without manual resources."""
+    """Register the dashboard card and remember which automation called us."""
     hass.data.setdefault(DOMAIN, {})
+    sources: OrderedDict[str, str] = OrderedDict()
+    hass.data[DATA_CONTEXT_SOURCES] = sources
+
+    @callback
+    def _remember(event: Event, kind: str) -> None:
+        """Map the run context of an automation/script to its name."""
+        name = event.data.get("name") or event.data.get("entity_id") or kind
+        sources[event.context.id] = f'{kind} "{name}"'
+        while len(sources) > 200:
+            sources.popitem(last=False)
+
+    @callback
+    def _automation(event: Event) -> None:
+        _remember(event, "automation")
+
+    @callback
+    def _script(event: Event) -> None:
+        _remember(event, "script")
+
+    hass.bus.async_listen("automation_triggered", _automation)
+    hass.bus.async_listen("script_started", _script)
     if hass.http is not None:
         await hass.http.async_register_static_paths(
             [

@@ -12,6 +12,7 @@ arm:
           translation_key: arm_mode_short
           options:
             - away
+            - stay
             - home
             - night
             - vacation
@@ -31,3 +32,35 @@ arm:
       default: false
       selector:
         boolean:
+    user:
+      required: false
+      example: "{{ trigger.event.data.actor }}"
+      selector:
+        text:
+    source:
+      required: false
+      example: UniFi Access - Front door
+      selector:
+        text:
+
+disarm:
+  target:
+    entity:
+      integration: pt_alarm
+      domain: alarm_control_panel
+  fields:
+    code:
+      required: false
+      selector:
+        text:
+          type: password
+    user:
+      required: false
+      example: "{{ trigger.event.data.actor }}"
+      selector:
+        text:
+    source:
+      required: false
+      example: UniFi Access - Front door
+      selector:
+        text:

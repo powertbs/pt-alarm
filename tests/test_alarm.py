@@ -24,15 +24,8 @@ WINDOW = "binary_sensor.kitchen_window"
 SMOKE = "binary_sensor.smoke"
 
 
-def _sensor(modes, immediate=False, always_on=False, allow_open=False, kind="door"):
-    return {
-        "type": kind,
-        "modes": modes,
-        "immediate": immediate,
-        "always_on": always_on,
-        "allow_open": allow_open,
-        "trigger_unavailable": False,
-    }
+def _sensor(zone_type, kind="door", chime=False):
+    return {"type": kind, "zone_type": zone_type, "chime": chime, "trigger_unavailable": False}
 
 
 def _options(**overrides):
@@ -40,14 +33,16 @@ def _options(**overrides):
         **DEFAULT_OPTIONS,
         "code_arm_required": False,
         "modes": {
-            "armed_away": {"enabled": True, "exit_time": 10, "entry_time": 5, "trigger_time": 20},
-            "armed_home": {"enabled": True, "exit_time": 0, "entry_time": 5, "trigger_time": 20},
+            "armed_away": {"enabled": True, "exit_time": 10, "trigger_time": 20},
+            "armed_home": {"enabled": True, "exit_time": 0, "trigger_time": 20},
             "armed_night": {"enabled": False},
         },
+        "entry_delay_1": 5,
+        "entry_delay_2": 15,
         "sensors": {
-            DOOR: _sensor(["armed_away", "armed_home"]),
-            WINDOW: _sensor(["armed_away"], immediate=True, kind="window"),
-            SMOKE: _sensor([], immediate=True, always_on=True, allow_open=True, kind="environmental"),
+            DOOR: _sensor("entry_exit_1"),
+            WINDOW: _sensor("perimeter", kind="window"),
+            SMOKE: _sensor("fire", kind="environmental"),
         },
         "users": [{"id": "1", "name": "Alice", "can_arm": True, "can_disarm": True, **hash_code("1234")}],
         "max_attempts": 3,
@@ -240,7 +235,8 @@ async def test_zone_sensors(hass):
     door_zone = "sensor.house_front_door"
     open_zones = "sensor.house_open_zones"
     assert hass.states.get(door_zone).state == "closed"
-    assert hass.states.get(door_zone).attributes["zone_type"] == "door"
+    assert hass.states.get(door_zone).attributes["zone_type"] == "entry_exit_1"
+    assert hass.states.get(door_zone).attributes["device_kind"] == "door"
     assert hass.states.get(open_zones).state == "0"
 
     hass.states.async_set(DOOR, "on")
@@ -291,3 +287,250 @@ async def test_cleaner_mondays_8_to_4_not_on_holidays(hass, freezer):
     with pytest.raises(ServiceValidationError, match="not valid at this time"):
         await _call(hass, "alarm_disarm", code="4444")
     assert hass.states.get(ENTITY).state == "armed_home"
+
+
+async def test_activity_log_names_the_alarm_user(hass, freezer):
+    from custom_components.pt_alarm import logbook as pt_logbook
+
+    describers = {}
+    pt_logbook.async_describe_events(hass, lambda d, e, fn: describers.setdefault(e, fn))
+    await _setup(hass, code_arm_required=True)
+    events = []
+    hass.bus.async_listen(EVENT, events.append)
+
+    await _call(hass, "alarm_arm_away", code="1234")
+    await _advance(hass, freezer, 11)  # exit delay ends: still credited to Alice
+    await _call(hass, "alarm_disarm", code="1234")
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, "alarm_disarm", code="0000")
+    await hass.async_block_till_done()
+
+    messages = [describers[EVENT](e)["message"] for e in events]
+    assert messages == [
+        "started arming away by Alice (10s exit delay)",
+        "armed away by Alice",
+        "disarmed by Alice",
+        "invalid code entered",
+    ]
+    assert describers[EVENT](events[0])["entity_id"] == ENTITY
+
+
+async def test_motion_zone_custom_name_and_location(hass):
+    from homeassistant.helpers import area_registry as ar
+
+    office = ar.async_get(hass).async_create("Office")
+    motion = "binary_sensor.secretary_office_presence_detector_ld2410"
+    hass.states.async_set(motion, "off")
+    sensors = {
+        **_options()["sensors"],
+        motion: {**_sensor("interior_follower", kind="motion"),
+                 "name": "Office motion", "area": office.id},
+    }
+    await _setup(hass, sensors=sensors)
+
+    zone = "sensor.house_office_motion"
+    state = hass.states.get(zone)
+    assert state is not None, "zone sensor uses the custom name"
+    assert state.state == "clear"
+    assert state.attributes["location"] == "Office"
+    assert state.attributes["options"] == ["clear", "motion", "bypassed", "alarm"]
+
+    hass.states.async_set(motion, "on")
+    await hass.async_block_till_done()
+    assert hass.states.get(zone).state == "motion"
+
+    zones = hass.states.get(ENTITY).attributes["zones"]
+    assert zones[motion] == {"name": "Office motion", "type": "motion", "zone_type": "interior_follower", "location": "Office"}
+
+    # Activity log and notifications use the short name and the location
+    from custom_components.pt_alarm.logbook import describe_event
+    assert describe_event(
+        {"event": "triggered", "sensor_name": "Office motion", "sensor_location": "Office"}
+    ) == "ALARM triggered by Office motion in Office"
+
+
+async def test_ready_to_arm_and_stay_label(hass):
+    from custom_components.pt_alarm.logbook import describe_event
+
+    await _setup(hass)
+    assert hass.states.get(ENTITY).attributes["ready_to_arm"] is True
+    hass.states.async_set(DOOR, "on")
+    await hass.async_block_till_done()
+    attrs = hass.states.get(ENTITY).attributes
+    assert attrs["ready_to_arm"] is False
+    assert attrs["not_ready_sensors"] == [DOOR]
+
+    await _call(hass, "arm", mode="stay", force=True, code="1234")
+    assert hass.states.get(ENTITY).state == "armed_home"
+    assert describe_event({"event": "armed", "mode": "armed_home", "user": "Alice"}) == "armed stay by Alice"
+
+
+async def test_disarm_always_clears_bypass(hass):
+    await _setup(hass)
+    hass.states.async_set(DOOR, "on")
+    await hass.async_block_till_done()
+    await _call(hass, "arm", mode="stay", force=True, code="1234")
+    assert hass.states.get(ENTITY).attributes["bypassed_sensors"] == [DOOR]
+
+    await _call(hass, "alarm_disarm", code="1234")
+    assert hass.states.get(ENTITY).attributes["bypassed_sensors"] == []
+    # Arming again without bypassing is refused while the door is still open
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, "arm", mode="stay")
+
+
+
+# ---------------------------------------------------------------- zone types
+HALL = "binary_sensor.hall_motion"
+LIVING = "binary_sensor.living_motion"
+BACK = "binary_sensor.back_door"
+LEAK = "binary_sensor.basement_leak"
+TAMPER = "binary_sensor.panel_tamper"
+
+
+def _zone_options(**overrides):
+    sensors = {
+        **_options()["sensors"],
+        HALL: _sensor("interior_follower", kind="motion"),
+        LIVING: _sensor("interior", kind="motion"),
+        BACK: _sensor("entry_exit_2", chime=True),
+        LEAK: _sensor("supervisory", kind="environmental"),
+        TAMPER: _sensor("tamper", kind="tamper"),
+    }
+    return {"sensors": sensors, **overrides}
+
+
+async def _zone_setup(hass, **overrides):
+    for entity_id in (HALL, LIVING, BACK, LEAK, TAMPER):
+        hass.states.async_set(entity_id, "off")
+    return await _setup(hass, **_zone_options(**overrides))
+
+
+async def _open(hass, entity_id, value="on"):
+    hass.states.async_set(entity_id, value)
+    await hass.async_block_till_done()
+
+
+async def test_stay_ignores_interior_zones(hass):
+    await _zone_setup(hass)
+    await _call(hass, "arm", mode="stay")
+    await _open(hass, LIVING)
+    await _open(hass, HALL)
+    assert hass.states.get(ENTITY).state == "armed_home"
+    await _open(hass, WINDOW)  # perimeter is instant in stay
+    assert hass.states.get(ENTITY).state == "triggered"
+
+
+async def test_interior_follower_follows_entry_delay(hass):
+    await _zone_setup(hass)
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    await _open(hass, DOOR)
+    assert hass.states.get(ENTITY).state == "pending"
+    await _open(hass, HALL)  # follower waits for the running entry delay
+    assert hass.states.get(ENTITY).state == "pending"
+    await _open(hass, LIVING)  # interior is instant, even during the entry delay
+    state = hass.states.get(ENTITY)
+    assert state.state == "triggered"
+    assert state.attributes["triggered_by"] == LIVING
+
+
+async def test_interior_follower_is_instant_without_entry_delay(hass):
+    await _zone_setup(hass)
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    await _open(hass, HALL)
+    assert hass.states.get(ENTITY).state == "triggered"
+
+
+async def test_entry_exit_2_uses_delay_2(hass):
+    await _zone_setup(hass)
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    await _open(hass, BACK)
+    state = hass.states.get(ENTITY)
+    assert state.state == "pending"
+    assert state.attributes["delay"] == 15
+
+
+async def test_instant_mode_has_no_entry_delay(hass):
+    await _zone_setup(
+        hass, modes={"armed_home": {"enabled": True, "exit_time": 0, "instant": True}}
+    )
+    await _call(hass, "arm", mode="stay")
+    await _open(hass, BACK)
+    assert hass.states.get(ENTITY).state == "triggered"
+
+
+async def test_tamper_and_supervisory_are_troubles_not_alarms(hass):
+    await _zone_setup(hass)
+    events = []
+    hass.bus.async_listen(EVENT, lambda e: events.append(e.data["event"]))
+    await _call(hass, "arm", mode="away", skip_delay=True)
+
+    await _open(hass, TAMPER)
+    await _open(hass, LEAK)
+    state = hass.states.get(ENTITY)
+    assert state.state == "armed_away"
+    assert set(state.attributes["troubles"]) == {TAMPER, LEAK}
+    assert events.count("trouble") == 2
+
+    await _open(hass, LEAK, "off")
+    assert set(hass.states.get(ENTITY).attributes["troubles"]) == {TAMPER}
+    assert "trouble_restored" in events
+
+
+async def test_fire_alarm_needs_a_code_to_reset(hass):
+    await _zone_setup(hass, code_disarm_required=False)
+    await _open(hass, SMOKE)
+    state = hass.states.get(ENTITY)
+    assert state.state == "triggered"
+    assert state.attributes["alarm_type"] == "fire"
+    assert state.attributes["expiration"] is None  # sounds until reset
+
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, "alarm_disarm")  # refused without a code
+    await _call(hass, "alarm_disarm", code="1234")
+    state = hass.states.get(ENTITY)
+    assert state.state == "disarmed"
+    assert state.attributes["alarm_type"] is None
+
+
+async def test_fire_beats_a_burglary_alarm(hass):
+    await _zone_setup(hass)
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    await _open(hass, WINDOW)
+    assert hass.states.get(ENTITY).attributes["alarm_type"] == "burglary"
+    await _open(hass, SMOKE)
+    assert hass.states.get(ENTITY).attributes["alarm_type"] == "fire"
+
+
+async def test_chime_only_while_disarmed(hass):
+    await _zone_setup(hass)
+    chimes = []
+
+    def _on_event(event):
+        if event.data["event"] == "chime":
+            chimes.append(event.data["sensor"])
+
+    hass.bus.async_listen(EVENT, _on_event)
+    await _open(hass, BACK)  # chime enabled
+    await _open(hass, DOOR)  # chime disabled
+    assert chimes == [BACK]
+    assert hass.states.get(ENTITY).attributes["last_chime"]["entity_id"] == BACK
+
+    await _open(hass, BACK, "off")
+    await _open(hass, DOOR, "off")
+    await _call(hass, "arm", mode="away", skip_delay=True)
+    await _open(hass, BACK)
+    assert chimes == [BACK]
+
+
+async def test_old_sensor_settings_are_migrated(hass):
+    legacy = {
+        DOOR: {"type": "door", "modes": ["armed_away"], "immediate": False},
+        WINDOW: {"type": "window", "modes": ["armed_away"], "immediate": True},
+        SMOKE: {"type": "environmental", "always_on": True},
+    }
+    await _setup(hass, sensors=legacy)
+    zones = hass.states.get(ENTITY).attributes["zones"]
+    assert zones[DOOR]["zone_type"] == "entry_exit_1"
+    assert zones[WINDOW]["zone_type"] == "perimeter"
+    assert zones[SMOKE]["zone_type"] == "fire"

@@ -1,11 +1,56 @@
 {
   "entity": {
     "sensor": {
-      "zone": {
+      "zone_door": {
+        "default": "mdi:door-closed",
+        "state": {
+          "closed": "mdi:door-closed",
+          "open": "mdi:door-open",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "zone_window": {
+        "default": "mdi:window-closed-variant",
+        "state": {
+          "closed": "mdi:window-closed-variant",
+          "open": "mdi:window-open-variant",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "zone_other": {
         "default": "mdi:shield-check",
         "state": {
           "closed": "mdi:shield-check",
-          "open": "mdi:door-open",
+          "open": "mdi:alert-circle",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "zone_motion": {
+        "default": "mdi:motion-sensor-off",
+        "state": {
+          "clear": "mdi:motion-sensor-off",
+          "motion": "mdi:motion-sensor",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "zone_tamper": {
+        "default": "mdi:shield-check",
+        "state": {
+          "ok": "mdi:shield-check",
+          "tampered": "mdi:shield-alert",
+          "bypassed": "mdi:shield-off-outline",
+          "alarm": "mdi:alarm-light"
+        }
+      },
+      "zone_environmental": {
+        "default": "mdi:smoke-detector-variant",
+        "state": {
+          "clear": "mdi:smoke-detector-variant",
+          "detected": "mdi:smoke-detector-variant-alert",
           "bypassed": "mdi:shield-off-outline",
           "alarm": "mdi:alarm-light"
         }
@@ -18,6 +63,9 @@
   "services": {
     "arm": {
       "service": "mdi:shield-lock"
+    },
+    "disarm": {
+      "service": "mdi:shield-off"
     }
   }
 }
